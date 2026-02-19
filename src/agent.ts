@@ -19,6 +19,8 @@ import { AgentFsImpl, AgentShellImpl, type SessionContext } from "./context.js";
 import type { SkillRef } from "./skills.js";
 import { SdkTool, type ToolDef } from "./tool.js";
 
+export { GeminiEventType, type ServerGeminiStreamEvent };
+
 export interface GeminiAgentOptions {
   instructions: string | ((ctx: SessionContext) => string | Promise<string>);
   tools?: ToolDef<any>[];

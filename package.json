@@ -1,8 +1,27 @@
 {
   "name": "@k2wanko/gemini-cli-sdk",
   "version": "0.1.0",
+  "description": "A lightweight SDK for building non-interactive AI agents powered by Google Gemini",
   "type": "module",
   "private": false,
+  "license": "MIT",
+  "author": "k2wanko",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/k2wanko/gemini-cli-sdk.git"
+  },
+  "homepage": "https://github.com/k2wanko/gemini-cli-sdk",
+  "bugs": {
+    "url": "https://github.com/k2wanko/gemini-cli-sdk/issues"
+  },
+  "keywords": [
+    "gemini",
+    "ai",
+    "agent",
+    "sdk",
+    "google",
+    "gemini-cli"
+  ],
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -14,6 +33,9 @@
   "files": [
     "dist"
   ],
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "build": "tsc",
     "lint": "biome check && tsc --noEmit",
