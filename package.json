@@ -1,12 +1,29 @@
 {
-  "name": "gemini-cli-sdk",
-  "module": "index.ts",
+  "name": "@k2wanko/gemini-cli-sdk",
+  "version": "0.1.0",
   "type": "module",
-  "private": true,
+  "private": false,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
   "scripts": {
+    "build": "tsc",
     "lint": "biome check && tsc --noEmit",
     "fix": "biome check --write . && tsc --noEmit",
     "test": "bun test"
+  },
+  "dependencies": {
+    "@google/gemini-cli-core": "0.30.0-nightly.20260218.ce84b3cb5",
+    "zod": "^3.23.8",
+    "zod-to-json-schema": "^3.23.1"
   },
   "devDependencies": {
     "@biomejs/biome": "latest",

@@ -1,0 +1,242 @@
+import {
+  ActivateSkillTool,
+  AuthType,
+  Config,
+  type ConfigParameters,
+  type Content,
+  type GeminiClient,
+  GeminiEventType,
+  getAuthTypeFromEnv,
+  loadSkillsFromDir,
+  PolicyDecision,
+  PREVIEW_GEMINI_MODEL_AUTO,
+  type ServerGeminiStreamEvent,
+  scheduleAgentTools,
+  type ToolCallRequestInfo,
+  type ToolRegistry,
+} from "@google/gemini-cli-core";
+import { AgentFsImpl, AgentShellImpl, type SessionContext } from "./context.js";
+import type { SkillRef } from "./skills.js";
+import { SdkTool, type ToolDef } from "./tool.js";
+
+export interface GeminiAgentOptions {
+  instructions: string | ((ctx: SessionContext) => string | Promise<string>);
+  tools?: ToolDef<any>[];
+  skills?: SkillRef[];
+  model?: string;
+  cwd?: string;
+  debug?: boolean;
+}
+
+export class GeminiAgent {
+  private readonly config: Config;
+  private readonly tools: ToolDef<any>[];
+  private readonly skillRefs: SkillRef[];
+  private readonly instructions: GeminiAgentOptions["instructions"];
+  private instructionsLoaded = false;
+
+  constructor(options: GeminiAgentOptions) {
+    this.instructions = options.instructions;
+    this.tools = options.tools ?? [];
+    this.skillRefs = options.skills ?? [];
+
+    const cwd = options.cwd ?? process.cwd();
+    const initialMemory =
+      typeof this.instructions === "string" ? this.instructions : "";
+
+    const configParams: ConfigParameters = {
+      sessionId: crypto.randomUUID(),
+      targetDir: cwd,
+      cwd,
+      debugMode: options.debug ?? false,
+      model: options.model ?? PREVIEW_GEMINI_MODEL_AUTO,
+      userMemory: initialMemory,
+      enableHooks: false,
+      mcpEnabled: false,
+      extensionsEnabled: false,
+      skillsSupport: true,
+      adminSkillsEnabled: true,
+      policyEngineConfig: {
+        defaultDecision: PolicyDecision.ALLOW,
+      },
+    };
+
+    this.config = new Config(configParams);
+  }
+
+  async *sendStream(
+    prompt: string,
+    signal?: AbortSignal,
+  ): AsyncGenerator<ServerGeminiStreamEvent> {
+    await this.initialize();
+
+    const client = this.config.getGeminiClient();
+    const abortSignal = signal ?? new AbortController().signal;
+    const sessionId = this.config.getSessionId();
+
+    const agentFs = new AgentFsImpl(this.config);
+    const agentShell = new AgentShellImpl(this.config);
+
+    let request: Parameters<GeminiClient["sendMessageStream"]>[0] = [
+      { text: prompt },
+    ];
+
+    if (!this.instructionsLoaded) {
+      const ctx: SessionContext = {
+        sessionId,
+        transcript: client.getHistory(),
+        cwd: this.config.getWorkingDir(),
+        timestamp: new Date().toISOString(),
+        fs: agentFs,
+        shell: agentShell,
+        agent: this,
+      };
+      await this.resolveInstructions(ctx, client);
+    }
+
+    while (true) {
+      const stream = client.sendMessageStream(request, abortSignal, sessionId);
+      const events: ServerGeminiStreamEvent[] = [];
+
+      for await (const event of stream) {
+        yield event;
+        events.push(event);
+      }
+
+      const toolCalls = this.extractToolCalls(events, sessionId);
+      if (toolCalls.length === 0) break;
+
+      const transcript: Content[] = client.getHistory();
+      const ctx: SessionContext = {
+        sessionId,
+        transcript,
+        cwd: this.config.getWorkingDir(),
+        timestamp: new Date().toISOString(),
+        fs: agentFs,
+        shell: agentShell,
+        agent: this,
+      };
+
+      const scopedRegistry = this.buildScopedRegistry(ctx);
+
+      const completedCalls = await scheduleAgentTools(this.config, toolCalls, {
+        schedulerId: sessionId,
+        toolRegistry: scopedRegistry,
+        signal: abortSignal,
+      });
+
+      const functionResponses = completedCalls.flatMap(
+        (call) => call.response.responseParts,
+      );
+
+      request = functionResponses as unknown as Parameters<
+        GeminiClient["sendMessageStream"]
+      >[0];
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Private helpers
+  // -------------------------------------------------------------------------
+
+  private async initialize(): Promise<void> {
+    if (this.config.getContentGenerator()) return;
+
+    const authType = getAuthTypeFromEnv() || AuthType.COMPUTE_ADC;
+    await this.config.refreshAuth(authType);
+    await this.config.initialize();
+
+    // Load skills from directories
+    if (this.skillRefs.length > 0) {
+      const skillManager = this.config.getSkillManager();
+
+      const loadPromises = this.skillRefs.map(async (ref) => {
+        try {
+          if (ref.type === "dir") {
+            return await loadSkillsFromDir(ref.path);
+          }
+        } catch (e) {
+          console.error(`Failed to load skills from ${ref.path}:`, e);
+        }
+        return [];
+      });
+
+      const loadedSkills = (await Promise.all(loadPromises)).flat();
+      if (loadedSkills.length > 0) {
+        skillManager.addSkills(loadedSkills);
+      }
+    }
+
+    // Re-register ActivateSkillTool so its schema reflects all loaded skills
+    const skillManager = this.config.getSkillManager();
+    if (skillManager.getSkills().length > 0) {
+      const registry = this.config.getToolRegistry();
+      const toolName = ActivateSkillTool.Name;
+      if (registry.getTool(toolName)) {
+        registry.unregisterTool(toolName);
+      }
+      registry.registerTool(
+        new ActivateSkillTool(this.config, this.config.getMessageBus()),
+      );
+    }
+
+    // Register user-defined tools
+    const registry = this.config.getToolRegistry();
+    const messageBus = this.config.getMessageBus();
+
+    for (const toolDef of this.tools) {
+      const sdkTool = new SdkTool(toolDef, messageBus, this);
+      registry.registerTool(sdkTool);
+    }
+  }
+
+  private async resolveInstructions(
+    ctx: SessionContext,
+    client: GeminiClient,
+  ): Promise<void> {
+    if (typeof this.instructions !== "function") return;
+
+    const resolved = await this.instructions(ctx);
+    this.config.setUserMemory(resolved);
+    client.updateSystemInstruction();
+    this.instructionsLoaded = true;
+  }
+
+  private buildScopedRegistry(ctx: SessionContext): ToolRegistry {
+    const originalRegistry = this.config.getToolRegistry();
+    const scopedRegistry: ToolRegistry = Object.create(
+      originalRegistry,
+    ) as ToolRegistry;
+    scopedRegistry.getTool = (name: string) => {
+      const tool = originalRegistry.getTool(name);
+      if (tool instanceof SdkTool) {
+        return tool.withContext(ctx);
+      }
+      return tool;
+    };
+    return scopedRegistry;
+  }
+
+  private extractToolCalls(
+    events: ServerGeminiStreamEvent[],
+    sessionId: string,
+  ): ToolCallRequestInfo[] {
+    const calls: ToolCallRequestInfo[] = [];
+    for (const event of events) {
+      if (event.type === GeminiEventType.ToolCallRequest) {
+        const toolCall = event.value;
+        const args =
+          typeof toolCall.args === "string"
+            ? (JSON.parse(toolCall.args) as Record<string, unknown>)
+            : toolCall.args;
+        calls.push({
+          ...toolCall,
+          args,
+          isClientInitiated: false,
+          prompt_id: sessionId,
+        });
+      }
+    }
+    return calls;
+  }
+}
