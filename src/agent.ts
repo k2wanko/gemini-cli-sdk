@@ -7,6 +7,8 @@ import {
   type GeminiClient,
   GeminiEventType,
   getAuthTypeFromEnv,
+  type HookDefinition,
+  HookEventName,
   loadSkillsFromDir,
   PolicyDecision,
   PREVIEW_GEMINI_MODEL_AUTO,
@@ -25,7 +27,12 @@ import {
 import type { SkillRef } from "./skills.js";
 import { SdkTool, type ToolDef } from "./tool.js";
 
-export { GeminiEventType, type ServerGeminiStreamEvent };
+export {
+  GeminiEventType,
+  HookEventName,
+  type HookDefinition,
+  type ServerGeminiStreamEvent,
+};
 
 export interface GeminiAgentOptions {
   instructions: string | ((ctx: SessionContext) => string | Promise<string>);
@@ -42,6 +49,8 @@ export interface GeminiAgentOptions {
   logLevel?: LogLevel;
   /** Custom log destination — defaults to console when logLevel is not "silent" */
   logger?: Logger;
+  /** Hook definitions — automatically enables the hook system when provided */
+  hooks?: Partial<Record<HookEventName, HookDefinition[]>>;
 }
 
 export class GeminiAgent {
@@ -71,7 +80,8 @@ export class GeminiAgent {
       debugMode: options.debug ?? false,
       model: options.model ?? PREVIEW_GEMINI_MODEL_AUTO,
       userMemory: initialMemory,
-      enableHooks: false,
+      enableHooks: !!options.hooks,
+      ...(options.hooks && { hooks: options.hooks }),
       mcpEnabled: false,
       extensionsEnabled: false,
       skillsSupport: true,

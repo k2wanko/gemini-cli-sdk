@@ -75,6 +75,7 @@ interface GeminiAgentOptions {
   compressionThreshold?: number // Context compression threshold (0-1)
   logLevel?: LogLevel           // Core logger verbosity (default: "silent")
   logger?: Logger               // Custom log destination (default: console)
+  hooks?: Partial<Record<HookEventName, HookDefinition[]>> // Hook definitions
 }
 ```
 
@@ -181,6 +182,31 @@ Pass `logLevel: "debug"` in `GeminiAgentOptions` to restore the original noisy b
 logs to a custom destination instead of `console`. All methods are optional; missing
 methods are treated as no-ops for that level. This is useful for integrating with
 external logging libraries (pino, winston, etc.).
+
+### Hooks (re-exported from core)
+
+```ts
+enum HookEventName {
+  BeforeTool, AfterTool, BeforeAgent, AfterAgent,
+  BeforeModel, AfterModel, BeforeToolSelection,
+  SessionStart, SessionEnd, PreCompress, Notification
+}
+
+interface HookDefinition {
+  matcher?: string           // Regex for tool events, exact match for lifecycle
+  sequential?: boolean       // Run hooks sequentially (default: parallel)
+  hooks: HookConfig[]
+}
+```
+
+Pass `hooks` in `GeminiAgentOptions` to register shell command hooks that run at
+various lifecycle events. The hook system is automatically enabled when `hooks` is
+provided. These are registered as user-level hooks (always trusted — no
+`TrustedHooksManager` approval required).
+
+Hooks receive JSON on stdin and return JSON on stdout. Exit code `0` means success,
+`2` means block the operation. See the Gemini CLI documentation for the full hook
+input/output protocol.
 
 ### `skillDir()` (skills.ts)
 
