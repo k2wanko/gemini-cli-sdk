@@ -7,6 +7,8 @@ Built on top of `@google/gemini-cli-core`.
 
 - **Skill support** — Load skill directories compatible with Gemini CLI's skill format
 - **Non-interactive by default** — All tool calls are auto-approved, designed for headless agent usage
+- **Logging control** — Suppress noisy core logs by default (`"silent"`), or route them to a custom logger (pino, winston, etc.) via `logLevel` and `logger` options
+- **Hooks** — Run shell commands at lifecycle events (BeforeTool, AfterTool, BeforeAgent, etc.) to inject context, block operations, or audit tool calls — compatible with Gemini CLI's hook protocol
 
 ## Install
 
