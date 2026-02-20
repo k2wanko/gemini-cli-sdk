@@ -1,9 +1,4 @@
-import {
-  GeminiAgent,
-  GeminiEventType,
-  listSessions,
-} from "../../src/index.js";
-import { Config, getAuthTypeFromEnv, AuthType } from "@google/gemini-cli-core";
+import { GeminiAgent, GeminiEventType } from "../../src/index.js";
 
 // Helper to collect text from a stream
 async function collectText(
@@ -21,7 +16,8 @@ async function collectText(
 // --- Step 1: Create an agent and send an initial message ---
 console.log("=== Step 1: Initial session ===");
 const agent1 = new GeminiAgent({
-  instructions: "You are a helpful assistant. Remember any facts the user tells you.",
+  instructions:
+    "You are a helpful assistant. Remember any facts the user tells you.",
 });
 
 const response1 = await collectText(
@@ -31,23 +27,7 @@ console.log("Agent:", response1);
 
 // --- Step 2: List sessions to find the one we just created ---
 console.log("\n=== Step 2: List sessions ===");
-// Create a temporary Config to access storage
-const tmpConfig = new Config({
-  sessionId: "tmp",
-  targetDir: process.cwd(),
-  cwd: process.cwd(),
-  debugMode: false,
-  model: "gemini-2.0-flash",
-  userMemory: "",
-  enableHooks: false,
-  mcpEnabled: false,
-  extensionsEnabled: false,
-});
-const authType = getAuthTypeFromEnv() || AuthType.COMPUTE_ADC;
-await tmpConfig.refreshAuth(authType);
-await tmpConfig.initialize();
-
-const sessions = await listSessions(tmpConfig);
+const sessions = await agent1.listSessions();
 if (sessions.length === 0) {
   console.log("No sessions found. Exiting.");
   process.exit(1);
@@ -61,7 +41,8 @@ console.log(
 // --- Step 3: Resume the session with a new agent instance ---
 console.log("\n=== Step 3: Resume session ===");
 const agent2 = new GeminiAgent({
-  instructions: "You are a helpful assistant. Remember any facts the user tells you.",
+  instructions:
+    "You are a helpful assistant. Remember any facts the user tells you.",
   sessionId: latestSession.sessionId,
 });
 

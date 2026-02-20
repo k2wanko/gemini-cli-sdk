@@ -1,6 +1,6 @@
 {
   "name": "@k2wanko/gemini-cli-sdk",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "A lightweight SDK for building non-interactive AI agents powered by Google Gemini",
   "type": "module",
   "private": false,

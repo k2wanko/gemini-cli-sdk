@@ -60,6 +60,8 @@ Key core dependencies:
 class GeminiAgent {
   constructor(options: GeminiAgentOptions)
   sendStream(prompt: string, signal?: AbortSignal): AsyncGenerator<ServerGeminiStreamEvent>
+  getSessionId(): string
+  listSessions(): Promise<SessionInfo[]>
 }
 
 interface GeminiAgentOptions {

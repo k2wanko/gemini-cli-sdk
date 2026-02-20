@@ -78,6 +78,17 @@ export class GeminiAgent {
     this.config = new Config(configParams);
   }
 
+  /** Return the session ID assigned to this agent instance */
+  getSessionId(): string {
+    return this.config.getSessionId();
+  }
+
+  /** List available sessions for the current project */
+  async listSessions(): Promise<import("./session.js").SessionInfo[]> {
+    await this.ensureInitialized();
+    return listSessions(this.config);
+  }
+
   async *sendStream(
     prompt: string,
     signal?: AbortSignal,
@@ -153,12 +164,20 @@ export class GeminiAgent {
   // Private helpers
   // -------------------------------------------------------------------------
 
-  private async initialize(): Promise<void> {
-    if (this.config.getContentGenerator()) return;
+  private initialized = false;
 
+  private async ensureInitialized(): Promise<void> {
+    if (this.initialized) return;
     const authType = getAuthTypeFromEnv() || AuthType.COMPUTE_ADC;
     await this.config.refreshAuth(authType);
     await this.config.initialize();
+    this.initialized = true;
+  }
+
+  private async initialize(): Promise<void> {
+    if (this.config.getContentGenerator()) return;
+
+    await this.ensureInitialized();
 
     // Resume previous session if requested
     if (this.resumeSessionId) {
