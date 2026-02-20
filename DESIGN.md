@@ -73,6 +73,7 @@ interface GeminiAgentOptions {
   debug?: boolean
   sessionId?: string            // Resume a previous session by ID
   compressionThreshold?: number // Context compression threshold (0-1)
+  logLevel?: LogLevel           // Core logger verbosity (default: "silent")
 }
 ```
 
@@ -144,6 +145,30 @@ automatic context compression kicks in. The core library emits `ChatCompressed` 
 (accessible via `GeminiEventType.ChatCompressed`) when compression occurs during
 `sendMessageStream()`.
 
+### Logging Control (logger.ts)
+
+```ts
+type LogLevel = "silent" | "error" | "warn" | "info" | "debug"
+
+function patchCoreLogger(level: LogLevel): void
+```
+
+`@google/gemini-cli-core` outputs debug logs via a `debugLogger` singleton that calls
+`console.log/warn/error/debug` unconditionally. The SDK patches this singleton at
+agent construction time to route logs through a configurable level system.
+
+| Level    | Output                              |
+| -------- | ----------------------------------- |
+| `silent` | Suppress all core logs (default)    |
+| `error`  | Only errors                         |
+| `warn`   | Errors + warnings                   |
+| `info`   | Errors + warnings + info            |
+| `debug`  | Everything (matches core behavior)  |
+
+The default is `"silent"` because SDK consumers typically don't want to see the core
+library's internal debug output (experiment dumps, routing decisions, retry traces, etc.).
+Pass `logLevel: "debug"` in `GeminiAgentOptions` to restore the original noisy behavior.
+
 ### `skillDir()` (skills.ts)
 
 ```ts
@@ -159,6 +184,7 @@ function skillDir(path: string): SkillRef
 src/
   index.ts      — barrel re-exports
   agent.ts      — GeminiAgent class
+  logger.ts     — LogLevel type, patchCoreLogger() helper
   session.ts    — listSessions(), loadSession(), messageRecordsToHistory()
   tool.ts       — defineTool(), ToolDef, ToolAction, ToolError, SdkTool, SdkToolInvocation
   context.ts    — SessionContext + AgentFs/AgentShell interfaces + internal implementations
