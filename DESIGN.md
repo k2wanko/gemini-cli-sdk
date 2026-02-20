@@ -74,6 +74,7 @@ interface GeminiAgentOptions {
   sessionId?: string            // Resume a previous session by ID
   compressionThreshold?: number // Context compression threshold (0-1)
   logLevel?: LogLevel           // Core logger verbosity (default: "silent")
+  logger?: Logger               // Custom log destination (default: console)
 }
 ```
 
@@ -150,7 +151,14 @@ automatic context compression kicks in. The core library emits `ChatCompressed` 
 ```ts
 type LogLevel = "silent" | "error" | "warn" | "info" | "debug"
 
-function patchCoreLogger(level: LogLevel): void
+interface Logger {
+  log?:   (...args: unknown[]) => void
+  warn?:  (...args: unknown[]) => void
+  error?: (...args: unknown[]) => void
+  debug?: (...args: unknown[]) => void
+}
+
+function patchCoreLogger(level: LogLevel, logger?: Logger): void
 ```
 
 `@google/gemini-cli-core` outputs debug logs via a `debugLogger` singleton that calls
@@ -168,6 +176,11 @@ agent construction time to route logs through a configurable level system.
 The default is `"silent"` because SDK consumers typically don't want to see the core
 library's internal debug output (experiment dumps, routing decisions, retry traces, etc.).
 Pass `logLevel: "debug"` in `GeminiAgentOptions` to restore the original noisy behavior.
+
+**Custom log destination** — Pass `logger` in `GeminiAgentOptions` to route filtered
+logs to a custom destination instead of `console`. All methods are optional; missing
+methods are treated as no-ops for that level. This is useful for integrating with
+external logging libraries (pino, winston, etc.).
 
 ### `skillDir()` (skills.ts)
 

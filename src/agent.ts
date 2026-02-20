@@ -16,7 +16,7 @@ import {
   type ToolRegistry,
 } from "@google/gemini-cli-core";
 import { AgentFsImpl, AgentShellImpl, type SessionContext } from "./context.js";
-import { type LogLevel, patchCoreLogger } from "./logger.js";
+import { type Logger, type LogLevel, patchCoreLogger } from "./logger.js";
 import {
   listSessions,
   loadSession,
@@ -40,6 +40,8 @@ export interface GeminiAgentOptions {
   compressionThreshold?: number;
   /** Core logger verbosity — default: "silent" */
   logLevel?: LogLevel;
+  /** Custom log destination — defaults to console when logLevel is not "silent" */
+  logger?: Logger;
 }
 
 export class GeminiAgent {
@@ -51,7 +53,7 @@ export class GeminiAgent {
   private instructionsLoaded = false;
 
   constructor(options: GeminiAgentOptions) {
-    patchCoreLogger(options.logLevel ?? "silent");
+    patchCoreLogger(options.logLevel ?? "silent", options.logger);
 
     this.instructions = options.instructions;
     this.tools = options.tools ?? [];
