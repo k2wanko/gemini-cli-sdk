@@ -102,6 +102,15 @@ export class GeminiAgent {
     return this.config.getSessionId();
   }
 
+  /**
+   * Return the underlying core Config instance.
+   * Useful for advanced use cases such as sub-agent execution.
+   * The Config is lazily initialized — call after the first sendStream().
+   */
+  getCoreConfig(): Config {
+    return this.config;
+  }
+
   /** List available sessions for the current project */
   async listSessions(): Promise<import("./session.js").SessionInfo[]> {
     await this.ensureInitialized();

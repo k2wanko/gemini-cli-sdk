@@ -47,6 +47,9 @@ Key core dependencies:
 | `ShellExecutionService`  | `context.ts` | Actual command execution               |
 | `ActivateSkillTool`      | `agent.ts`   | Skill activation support               |
 | `loadSkillsFromDir`      | `agent.ts`   | Discover skills from directories       |
+| `LocalAgentExecutor`     | `subagent.ts`| Sub-agent execution loop               |
+| `loadAgentsFromDirectory`| `subagent.ts`| Load agent defs from `.md` files       |
+| `AgentTerminateMode`     | `subagent.ts`| Agent termination reason enum          |
 | `SESSION_FILE_PREFIX`    | `session.ts` | Session file naming convention         |
 | `ConversationRecord`     | `session.ts` | Stored conversation format             |
 | `MessageRecord`          | `session.ts` | Individual message in a conversation   |
@@ -215,6 +218,87 @@ type SkillRef = { type: "dir"; path: string }
 function skillDir(path: string): SkillRef
 ```
 
+### Sub-agents (subagent.ts)
+
+Sub-agents allow a parent agent to delegate tasks to specialized child agents.
+The SDK supports two patterns:
+
+#### `loadSubAgents()` — File-based (primary API)
+
+```ts
+async function loadSubAgents(
+  dir: string,
+  options?: { onActivity?: (event: SubagentActivityEvent) => void },
+): Promise<ToolDef[]>
+```
+
+Loads `.md` files from `dir` using core's `loadAgentsFromDirectory()`. Each agent
+definition becomes a `ToolDef` with a `{ query?: string }` input schema. Files
+starting with `_` are ignored.
+
+Markdown agent format (same as Gemini CLI):
+```markdown
+---
+name: translator
+description: Translate text into the target language
+tools:
+  - activate_skill
+model: inherit
+max_turns: 3
+timeout_mins: 1
+---
+You are a professional translator.
+Translate the following text into the requested language.
+Output ONLY the translated text.
+```
+
+Both local (`kind: 'local'` or omitted) and remote (`kind: 'remote'`) agents are
+supported in the same directory.
+
+#### `defineSubAgent()` — Programmatic API
+
+```ts
+interface SubAgentOptions<TInput extends z.ZodRawShape> {
+  name: string
+  description: string
+  inputSchema: z.ZodObject<TInput>
+  systemPrompt: string        // supports ${paramName} template syntax
+  query?: string              // supports ${paramName} template
+  model?: string              // default: "inherit"
+  maxTurns?: number
+  maxTimeMinutes?: number
+  tools?: string[]            // tool whitelist; omit to inherit all
+  onActivity?: (event: SubagentActivityEvent) => void
+}
+
+function defineSubAgent<TInput extends z.ZodRawShape>(
+  options: SubAgentOptions<TInput>,
+): ToolDef<z.ZodObject<TInput>>
+```
+
+Returns a `ToolDef` with custom input schema and template-based prompt
+interpolation. Model defaults to `"inherit"` (parent's active model).
+
+#### Tools / Skills / Hooks behavior
+
+| Feature | How it works |
+|---|---|
+| `tools` in front-matter | Maps to `toolConfig.tools` — whitelist of parent tool names |
+| `tools` omitted | Inherits ALL parent tools (including `activate_skill`) |
+| Hooks | Automatic via parent Config's `HookSystem` — no toggle needed |
+| Skills | Include `"activate_skill"` in `tools` or omit `tools` to inherit all |
+
+#### Re-exports from core
+
+```ts
+export {
+  AgentTerminateMode,
+  type SubagentActivityEvent,
+  type LocalAgentDefinition,
+  type RemoteAgentDefinition,
+}
+```
+
 ## Internal Architecture
 
 ### File Structure
@@ -225,6 +309,7 @@ src/
   agent.ts      — GeminiAgent class
   logger.ts     — LogLevel type, patchCoreLogger() helper
   session.ts    — listSessions(), loadSession(), messageRecordsToHistory()
+  subagent.ts   — defineSubAgent(), loadSubAgents(), local/remote wrappers
   tool.ts       — defineTool(), ToolDef, ToolAction, ToolError, SdkTool, SdkToolInvocation
   context.ts    — SessionContext + AgentFs/AgentShell interfaces + internal implementations
   skills.ts     — SkillRef type, skillDir() helper
@@ -245,6 +330,21 @@ src/
   `withContext(ctx)` returns a new instance with bound `SessionContext`.
 - `SdkToolInvocation<T>` extends `BaseToolInvocation` — executes the user-defined action.
   `private serialize(value)` formats the result for LLM consumption.
+
+### subagent.ts internals
+
+- `wrapLocalAgentAsTool(def, inputSchema, onActivity?)` — shared by both
+  `loadSubAgents` and `defineSubAgent`. Gets parent `Config` via
+  `ctx.agent.getCoreConfig()`, registers a model config alias
+  (`${name}-config`), creates a `LocalAgentExecutor`, runs it, and returns
+  the result on `GOAL` or throws `ToolError` otherwise.
+
+- `wrapRemoteAgentAsTool(def, inputSchema)` — creates an A2A client via
+  `ClientFactory` from `@a2a-js/sdk/client`, sends a blocking message, and
+  extracts text from the response (`Message.parts` or `Task.status.message.parts`).
+
+- Model config registration replicates core's `AgentRegistry.registerModelConfigs()`
+  since `getModelConfigAlias()` is not exported.
 
 ### context.ts internals
 

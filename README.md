@@ -5,6 +5,7 @@ Built on top of `@google/gemini-cli-core`.
 
 ## Features
 
+- **Sub-agents** — Delegate tasks to specialized child agents via `defineSubAgent()` (programmatic) or `loadSubAgents()` (markdown files), supporting both local Gemini agents and remote A2A protocol agents
 - **Skill support** — Load skill directories compatible with Gemini CLI's skill format
 - **Non-interactive by default** — All tool calls are auto-approved, designed for headless agent usage
 - **Logging control** — Suppress noisy core logs by default (`"silent"`), or route them to a custom logger (pino, winston, etc.) via `logLevel` and `logger` options
