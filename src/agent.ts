@@ -16,6 +16,11 @@ import {
   type ToolRegistry,
 } from "@google/gemini-cli-core";
 import { AgentFsImpl, AgentShellImpl, type SessionContext } from "./context.js";
+import {
+  listSessions,
+  loadSession,
+  messageRecordsToHistory,
+} from "./session.js";
 import type { SkillRef } from "./skills.js";
 import { SdkTool, type ToolDef } from "./tool.js";
 
@@ -28,6 +33,10 @@ export interface GeminiAgentOptions {
   model?: string;
   cwd?: string;
   debug?: boolean;
+  /** Resume a specific session by ID */
+  sessionId?: string;
+  /** Context compression threshold (0-1 fraction) */
+  compressionThreshold?: number;
 }
 
 export class GeminiAgent {
@@ -35,12 +44,14 @@ export class GeminiAgent {
   private readonly tools: ToolDef<any>[];
   private readonly skillRefs: SkillRef[];
   private readonly instructions: GeminiAgentOptions["instructions"];
+  private readonly resumeSessionId: string | undefined;
   private instructionsLoaded = false;
 
   constructor(options: GeminiAgentOptions) {
     this.instructions = options.instructions;
     this.tools = options.tools ?? [];
     this.skillRefs = options.skills ?? [];
+    this.resumeSessionId = options.sessionId;
 
     const cwd = options.cwd ?? process.cwd();
     const initialMemory =
@@ -61,6 +72,7 @@ export class GeminiAgent {
       policyEngineConfig: {
         defaultDecision: PolicyDecision.ALLOW,
       },
+      compressionThreshold: options.compressionThreshold,
     };
 
     this.config = new Config(configParams);
@@ -147,6 +159,18 @@ export class GeminiAgent {
     const authType = getAuthTypeFromEnv() || AuthType.COMPUTE_ADC;
     await this.config.refreshAuth(authType);
     await this.config.initialize();
+
+    // Resume previous session if requested
+    if (this.resumeSessionId) {
+      const sessions = await listSessions(this.config);
+      const target = sessions.find((s) => s.sessionId === this.resumeSessionId);
+      if (target) {
+        const resumed = await loadSession(target.filePath);
+        const history = messageRecordsToHistory(resumed.conversation.messages);
+        const client = this.config.getGeminiClient();
+        await client.resumeChat(history, resumed);
+      }
+    }
 
     // Load skills from directories
     if (this.skillRefs.length > 0) {

@@ -47,6 +47,10 @@ Key core dependencies:
 | `ShellExecutionService`  | `context.ts` | Actual command execution               |
 | `ActivateSkillTool`      | `agent.ts`   | Skill activation support               |
 | `loadSkillsFromDir`      | `agent.ts`   | Discover skills from directories       |
+| `SESSION_FILE_PREFIX`    | `session.ts` | Session file naming convention         |
+| `ConversationRecord`     | `session.ts` | Stored conversation format             |
+| `MessageRecord`          | `session.ts` | Individual message in a conversation   |
+| `ResumedSessionData`     | `session.ts` | Data passed to `resumeChat()`          |
 
 ## Public API
 
@@ -65,6 +69,8 @@ interface GeminiAgentOptions {
   model?: string
   cwd?: string
   debug?: boolean
+  sessionId?: string            // Resume a previous session by ID
+  compressionThreshold?: number // Context compression threshold (0-1)
 }
 ```
 
@@ -104,6 +110,38 @@ interface AgentShell {
 }
 ```
 
+### Session Resume & Context Compression (session.ts)
+
+```ts
+interface SessionInfo {
+  sessionId: string
+  filePath: string
+  startTime: string
+  lastUpdated: string
+  messageCount: number
+  summary?: string
+}
+
+// List available sessions for the current project
+function listSessions(config: Config): Promise<SessionInfo[]>
+
+// Load a session file into ResumedSessionData
+function loadSession(filePath: string): Promise<ResumedSessionData>
+
+// Convert MessageRecord[] to Content[] for API history reconstruction
+function messageRecordsToHistory(messages: MessageRecord[]): Content[]
+```
+
+**Session Resume** — Pass `sessionId` in `GeminiAgentOptions` to resume a previous
+conversation. During `initialize()`, the agent looks up the session file, reconstructs
+the chat history from `MessageRecord[]`, and calls `GeminiClient.resumeChat()` so the
+model sees the full prior conversation.
+
+**Context Compression** — Pass `compressionThreshold` (0-1 fraction) to control when
+automatic context compression kicks in. The core library emits `ChatCompressed` events
+(accessible via `GeminiEventType.ChatCompressed`) when compression occurs during
+`sendMessageStream()`.
+
 ### `skillDir()` (skills.ts)
 
 ```ts
@@ -119,6 +157,7 @@ function skillDir(path: string): SkillRef
 src/
   index.ts      — barrel re-exports
   agent.ts      — GeminiAgent class
+  session.ts    — listSessions(), loadSession(), messageRecordsToHistory()
   tool.ts       — defineTool(), ToolDef, ToolAction, ToolError, SdkTool, SdkToolInvocation
   context.ts    — SessionContext + AgentFs/AgentShell interfaces + internal implementations
   skills.ts     — SkillRef type, skillDir() helper
@@ -128,7 +167,7 @@ src/
 
 `GeminiAgent.sendStream()` is decomposed into private helpers:
 
-- `initialize()` — lazy auth + config init + tool/skill registration (runs once)
+- `initialize()` — lazy auth + config init + session resume + tool/skill registration (runs once)
 - `resolveInstructions(ctx)` — evaluate dynamic instructions function (runs once)
 - `buildScopedRegistry(ctx)` — create per-turn registry with context-bound SdkTools
 - `extractToolCalls(events, sessionId)` — filter ToolCallRequest events into scheduling format
