@@ -4,6 +4,7 @@ import {
   GeminiAgent,
   GeminiEventType,
   HookEventName,
+  HookType,
   defineTool,
 } from "../../src/index.js";
 
@@ -27,13 +28,13 @@ const agent = new GeminiAgent({
     [HookEventName.BeforeTool]: [
       {
         matcher: ".*",
-        hooks: [{ type: "command" as const, command: hookScript }],
+        hooks: [{ type: HookType.Command, command: hookScript }],
       },
     ],
     [HookEventName.AfterTool]: [
       {
         matcher: ".*",
-        hooks: [{ type: "command" as const, command: hookScript }],
+        hooks: [{ type: HookType.Command, command: hookScript }],
       },
     ],
   },

@@ -9,6 +9,7 @@ import {
   getAuthTypeFromEnv,
   type HookDefinition,
   HookEventName,
+  HookType,
   loadSkillsFromDir,
   PolicyDecision,
   PREVIEW_GEMINI_MODEL_AUTO,
@@ -30,6 +31,7 @@ import { SdkTool, type ToolDef } from "./tool.js";
 export {
   GeminiEventType,
   HookEventName,
+  HookType,
   type HookDefinition,
   type ServerGeminiStreamEvent,
 };
