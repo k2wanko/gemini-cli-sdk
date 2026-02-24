@@ -1,10 +1,10 @@
 import { z } from "zod";
 import {
+  defineTool,
   GeminiAgent,
   GeminiEventType,
   HookEventName,
   HookType,
-  defineTool,
 } from "../../src/index.js";
 
 const blockHook = new URL("hooks/block-tool.sh", import.meta.url).pathname;

@@ -72,10 +72,7 @@ for (const topic of topics) {
     if (event.type === GeminiEventType.ChatCompressed) {
       compressed = true;
       console.log("\n*** [ChatCompressed event received] ***");
-      console.log(
-        "  Compression info:",
-        JSON.stringify(event.value, null, 2),
-      );
+      console.log("  Compression info:", JSON.stringify(event.value, null, 2));
     }
   }
   console.log(`  (Response: ${responseLength} chars)`);

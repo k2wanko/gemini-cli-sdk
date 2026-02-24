@@ -1,11 +1,11 @@
 import { readFileSync } from "node:fs";
 import { z } from "zod";
 import {
+  defineTool,
   GeminiAgent,
   GeminiEventType,
   HookEventName,
   HookType,
-  defineTool,
 } from "../../src/index.js";
 
 const hookScript = new URL("hooks/log-tool.sh", import.meta.url).pathname;
