@@ -123,7 +123,11 @@ export class NodeVMExecutor implements Executor {
     code: string,
     fns: Record<string, (...args: unknown[]) => Promise<unknown>>,
   ): Promise<ExecuteResult> {
-    debugLogger.debug?.("[codemode:executor] execute called, code length=%d, available fns=%s", code.length, Object.keys(fns).join(", "));
+    debugLogger.debug?.(
+      "[codemode:executor] execute called, code length=%d, available fns=%s",
+      code.length,
+      Object.keys(fns).join(", "),
+    );
     debugLogger.debug?.("[codemode:executor] code:\n%s", code);
 
     const logs: string[] = [];
@@ -151,14 +155,21 @@ export class NodeVMExecutor implements Executor {
 
       const result = await fn(fns, captureConsole);
 
-      debugLogger.debug?.("[codemode:executor] execution completed, result=%s, logs=%d", typeof result, logs.length);
+      debugLogger.debug?.(
+        "[codemode:executor] execution completed, result=%s, logs=%d",
+        typeof result,
+        logs.length,
+      );
 
       return {
         result,
         logs: logs.length > 0 ? logs : undefined,
       };
     } catch (error) {
-      debugLogger.debug?.("[codemode:executor] execution failed: %s", error instanceof Error ? error.message : String(error));
+      debugLogger.debug?.(
+        "[codemode:executor] execution failed: %s",
+        error instanceof Error ? error.message : String(error),
+      );
       return {
         result: undefined,
         error: error instanceof Error ? error.message : String(error),
@@ -198,7 +209,10 @@ const result = await codemode.toolName({ param: "value" });
 return result;
 \`\`\``;
 
-  debugLogger.debug?.("[codemode] createCodeModeTool: registering %d tools", options.tools.length);
+  debugLogger.debug?.(
+    "[codemode] createCodeModeTool: registering %d tools",
+    options.tools.length,
+  );
 
   return defineTool(
     {
@@ -214,14 +228,24 @@ return result;
       sendErrorsToModel: true,
     },
     async ({ code }, context: SessionContext) => {
-      debugLogger.debug?.("[codemode] tool invoked, code length=%d", code.length);
+      debugLogger.debug?.(
+        "[codemode] tool invoked, code length=%d",
+        code.length,
+      );
 
       const fns: Record<string, (...args: unknown[]) => Promise<unknown>> = {};
 
       for (const tool of options.tools) {
         fns[tool.name] = (input: unknown) => {
-          debugLogger.debug?.("[codemode] calling tool '%s' with input: %s", tool.name, JSON.stringify(input));
-          return tool.action(input as z.infer<typeof tool.inputSchema>, context);
+          debugLogger.debug?.(
+            "[codemode] calling tool '%s' with input: %s",
+            tool.name,
+            JSON.stringify(input),
+          );
+          return tool.action(
+            input as z.infer<typeof tool.inputSchema>,
+            context,
+          );
         };
       }
 

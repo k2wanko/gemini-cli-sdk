@@ -44,7 +44,7 @@ const codeModeTool = createCodeModeTool({
 // console.log("codeModeTool description:\n", codeModeTool);
 
 const agent = new GeminiAgent({
-  logLevel: 'debug',
+  logLevel: "debug",
   instructions:
     "You are a helpful assistant. Use the code tool to perform calculations and text operations.",
   tools: [codeModeTool],
