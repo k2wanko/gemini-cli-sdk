@@ -91,6 +91,7 @@ export class GeminiAgent {
       policyEngineConfig: {
         defaultDecision: PolicyDecision.ALLOW,
       },
+      disableLoopDetection: true,
       compressionThreshold: options.compressionThreshold,
     };
 
