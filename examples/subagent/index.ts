@@ -5,9 +5,9 @@
  *   bun examples/subagent/index.ts
  */
 import {
+  defineSubAgent,
   GeminiAgent,
   GeminiEventType,
-  defineSubAgent,
   z,
 } from "../../src/index.js";
 
@@ -22,7 +22,9 @@ const translate = defineSubAgent({
     targetLang: z.string().describe("Target language"),
   }),
   systemPrompt:
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: SDK template syntax, not JS interpolation
     "You are a professional translator.\nTranslate into ${targetLang}.\nOutput ONLY the translated text.",
+  // biome-ignore lint/suspicious/noTemplateCurlyInString: SDK template syntax, not JS interpolation
   query: "${text}",
 });
 

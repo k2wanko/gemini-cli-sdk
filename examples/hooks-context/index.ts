@@ -1,13 +1,14 @@
 import { z } from "zod";
 import {
+  defineTool,
   GeminiAgent,
   GeminiEventType,
   HookEventName,
   HookType,
-  defineTool,
 } from "../../src/index.js";
 
-const contextHook = new URL("hooks/inject-context.sh", import.meta.url).pathname;
+const contextHook = new URL("hooks/inject-context.sh", import.meta.url)
+  .pathname;
 
 const lookupUser = defineTool(
   {

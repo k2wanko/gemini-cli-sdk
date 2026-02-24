@@ -2,9 +2,7 @@ import { GeminiAgent, GeminiEventType, skillDir } from "../../src/index.js";
 
 const agent = new GeminiAgent({
   instructions: "You are a browser automation assistant.",
-  skills: [
-    skillDir(new URL("skills", import.meta.url).pathname),
-  ],
+  skills: [skillDir(new URL("skills", import.meta.url).pathname)],
 });
 
 for await (const event of agent.sendStream(

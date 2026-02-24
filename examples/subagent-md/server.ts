@@ -8,13 +8,13 @@
 import http from "node:http";
 import type { AgentCard, Message } from "@a2a-js/sdk";
 import {
-  DefaultRequestHandler,
-  InMemoryTaskStore,
   type AgentExecutor,
-  type RequestContext,
+  DefaultRequestHandler,
   type ExecutionEventBus,
+  InMemoryTaskStore,
+  JsonRpcTransportHandler,
+  type RequestContext,
 } from "@a2a-js/sdk/server";
-import { JsonRpcTransportHandler } from "@a2a-js/sdk/server";
 
 // ---------------------------------------------------------------------------
 // Agent executor — converts incoming text to UPPER CASE
@@ -35,7 +35,9 @@ const echoExecutor: AgentExecutor = {
     };
 
     console.log(`Received message: ${inputText}`);
-    console.log(`Replying with: ${reply.parts[0]?.kind === "text" ? reply.parts[0].text : "(no text part)"}`);
+    console.log(
+      `Replying with: ${reply.parts[0]?.kind === "text" ? reply.parts[0].text : "(no text part)"}`,
+    );
 
     eventBus.publish(reply);
     eventBus.finished();
@@ -65,6 +67,7 @@ function buildAgentCard(port: number): AgentCard {
         id: "echo-upper",
         name: "Echo Upper",
         description: "Converts text to uppercase",
+        tags: [],
       },
     ],
   };
@@ -91,10 +94,7 @@ export async function startA2AServer(port = 51898): Promise<A2AServer> {
 
   const server = http.createServer(async (req, res) => {
     // Agent card endpoint
-    if (
-      req.method === "GET" &&
-      req.url === "/.well-known/agent-card.json"
-    ) {
+    if (req.method === "GET" && req.url === "/.well-known/agent-card.json") {
       // Update URL in card to reflect actual port
       const card = { ...agentCard, url: `http://localhost:${actualPort}` };
       res.writeHead(200, { "Content-Type": "application/json" });

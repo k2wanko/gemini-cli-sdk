@@ -1,13 +1,12 @@
 import { GeminiAgent, GeminiEventType } from "../../src/index.js";
 
 // Helper to collect text from a stream
-async function collectText(
-  stream: AsyncGenerator<{ type: string; value: unknown }>,
-): Promise<string> {
+async function collectText(stream: AsyncIterable<unknown>): Promise<string> {
   let text = "";
   for await (const event of stream) {
-    if (event.type === GeminiEventType.Content) {
-      text += String(event.value);
+    const e = event as { type: string; value?: unknown };
+    if (e.type === GeminiEventType.Content) {
+      text += String(e.value);
     }
   }
   return text;
@@ -28,12 +27,11 @@ console.log("Agent:", response1);
 // --- Step 2: List sessions to find the one we just created ---
 console.log("\n=== Step 2: List sessions ===");
 const sessions = await agent1.listSessions();
-if (sessions.length === 0) {
+const latestSession = sessions[0];
+if (!latestSession) {
   console.log("No sessions found. Exiting.");
   process.exit(1);
 }
-
-const latestSession = sessions[0]!;
 console.log(
   `Found session: ${latestSession.sessionId} (${latestSession.messageCount} messages)`,
 );
